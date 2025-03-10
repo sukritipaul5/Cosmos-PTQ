@@ -1,7 +1,7 @@
 from huggingface_hub import login, snapshot_download
 import os
 
-login(token="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", add_to_git_credential=True)
+login(token="", add_to_git_credential=True)
 model_names = [
         "Cosmos-Tokenizer-CI8x8",
         "Cosmos-Tokenizer-CI16x16",
