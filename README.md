@@ -19,10 +19,19 @@ Our logarithmic quantization consistently outperforms per-tensor approaches, mai
 ## Installation
 
 ```bash
-git clone https://github.com/sukritipaul/Cosmos-Tokenizer.git
-cd Cosmos-Tokenizer
+git clone https://github.com/sukritipaul/Cosmos-PTQ.git
+cd Cosmos-PTQ
 pip install -r requirements.txt
 ```
+
+#Download Pre-trained Checkpoints
+
+```bash
+cd ./scripts
+python ckpt_download.py
+```
+
+
 
 ## Usage
 
