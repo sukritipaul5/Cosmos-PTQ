@@ -1,233 +1,139 @@
-<!-- # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License. -->
-# Cosmos Tokenizer: A suite of image and video neural tokenizers.
+# Post-Training Quantization of Image Tokenizers for Autoregressive Image Generation
 
-### [Website](https://research.nvidia.com/labs/dir/cosmos-tokenizer) | [NVIDIA Blog](https://developer.nvidia.com/blog/state-of-the-art-multimodal-generative-ai-model-development-with-nvidia-nemo/) | [Hugging Face](https://huggingface.co/collections/nvidia/cosmos-tokenizer-672b93023add81b66a8ff8e6) | [YouTube](https://youtu.be/Soy_myOfWIU) | [TokenBench](https://github.com/NVlabs/TokenBench)
+![Results Overview](assets/ptq_results.png)
 
-We present **Cosmos Tokenizer**, a suite of image and video tokenizers that advances the state-of-the-art in visual tokenization, paving the way for scalable, robust and efficient development of large auto-regressive transformers (such as LLMs) or diffusion generators. This repo hosts the inference codes and shares pre-trained models for the different tokenizers. Please check out our [demo video](https://youtu.be/Soy_myOfWIU).
+[Report](./PTQ_Report.pdf)
+
+We present **PTQ-Tokenizer**, a framework for efficiently compressing image tokenizers through post-training quantization techniques. This work addresses the computational bottleneck of image tokenization in autoregressive generation models, enabling significantly smaller model sizes while maintaining image quality. We compare logarithmic and per-tensor quantization schemes and demonstrate superior performance with logarithmic methods.
+
+|                      | 8-bit               | 6-bit              | 4-bit             | 2-bit              |
+| -------------------- | ------------------- | ------------------ | ----------------- | ------------------ |
+| **PSNR (Log)**       | 26.54 dB            | 25.15 dB           | 20.54 dB          | 6.55 dB            |
+| **PSNR (Per-Tensor)**| 25.91 dB            | 14.84 dB           | 9.69 dB           | 7.83 dB            |
+| **Compression Ratio**| 2.52x               | 4.93x              | 7.85x             | 59.61x             |
+
+Our logarithmic quantization consistently outperforms per-tensor approaches, maintaining PSNR of 25.15 dB versus 14.84 dB at 6-bit quantization while achieving similar compression ratios. Our analysis reveals asymmetric encoder-decoder sensitivity, enabling mixed-precision strategies that achieve up to 7.8x model size reduction while preserving image fidelity.
 
 
-|                   | Continuous ( C )    | Discrete ( D )      |
-| ------------------|---------------------|---------------------|
-| **Images ( I )**        | Cosmos-Tokenizer-CI      | Cosmos-Tokenizer-DI      |
-| **Videos ( V )**        | Cosmos-Tokenizer-CV      | Cosmos-Tokenizer-DV      |
-
-
-
-Given an image or video, Cosmos Tokenizer outputs either continuous latents or discrete tokens. Cosmos Tokenizer achieves spatial compression rates of 8x or 16x and temporal compression factors of 4x or 8x, resulting in a total compression factor of up to 2048x (=8x16x16).
-Cosmos Tokenizer delivers 8x more total compression than state-of-the-art (SOTA) methods, while simultaneously maintaining higher image quality and running up to 12x faster than the best available SOTA tokenizers.
-
-![Arch](assets/arch_diagram.jpg)
-
-## Licenses
-- **Models**: The models are licensed under [NVIDIA Open Model License](https://developer.download.nvidia.com/licenses/nvidia-open-model-license-agreement-june-2024.pdf). Under the NVIDIA Open Model License, NVIDIA confirms:
-  - Models are commercially usable. 
-  - You are free to create and distribute Derivative Models. 
-  - NVIDIA does not claim ownership to any outputs generated using the Models or Derivative Models.
-- **GitHub Code**: This repository is licensed under the [Apache 2.0
-  license](https://github.com/NVIDIA/Cosmos-Tokenizer/blob/main/LICENSE).
 
 ## Installation
-- Clone the source code
-```
-git clone https://github.com/NVIDIA/Cosmos-Tokenizer.git
-cd Cosmos-Tokenizer
-```
-- Install dependencies
-```
-pip3 install -r requirements.txt
-apt-get install -y ffmpeg
+
+```bash
+git clone https://github.com/sukritipaul/PTQ-Tokenizer.git
+cd PTQ-Tokenizer
+pip install -r requirements.txt
 ```
 
-Preferably, build a docker image using the provided Dockerfile
-```
-docker build -t cosmos-docker -f Dockerfile .
-
-# You can run the container as:
-docker run --gpus all -it --rm -v /home/${USER}:/home/${USER} \
-    --workdir ${PWD} cosmos-docker /bin/bash
-```
-
-## Download Pre-trained Checkpoints from Hugging Face
-
-
-We host 10 Cosmos-Tokenizer models on Hugging Face, with the following model names. You can use this snippet to download:
-```python
-from huggingface_hub import login, snapshot_download
-import os
-
-login(token="<YOUR-HF-TOKEN>", add_to_git_credential=True)
-model_names = [
-        "Cosmos-Tokenizer-CI8x8",
-        "Cosmos-Tokenizer-CI16x16",
-        "Cosmos-Tokenizer-CV4x8x8",
-        "Cosmos-Tokenizer-CV8x8x8",
-        "Cosmos-Tokenizer-CV8x16x16",
-        "Cosmos-Tokenizer-DI8x8",
-        "Cosmos-Tokenizer-DI16x16",
-        "Cosmos-Tokenizer-DV4x8x8",
-        "Cosmos-Tokenizer-DV8x8x8",
-        "Cosmos-Tokenizer-DV8x16x16",
-]
-for model_name in model_names:
-    hf_repo = "nvidia/" + model_name
-    local_dir = "pretrained_ckpts/" + model_name
-    os.makedirs(local_dir, exist_ok=True)
-    print(f"downloading {model_name}...")
-    snapshot_download(repo_id=hf_repo, allow_patterns=["*.jit"], local_dir=local_dir)
-```
-Under the checkpoint repository `pretrained_ckpts/{model_name}`, we provide the encoder, decoder and the full autoencoder JIT models.
-```bash 
-├── Cosmos-Tokenizer-DV4x8x8/
-│   ├── encoder.jit
-│   ├── decoder.jit
-│   ├── autoencoder.jit
-```
-## Running the codes
-You can use the following example commands to encode and decode images or videos. <br />
-For each, the same command works for both continuous and discrete tokenization. Simply provide the proper JIT-compiled ckpt to `checkpoint_enc`, `checkpoint_dec`, or the full autoencoder ckpt to `checkpoint`.
-
-### Encoding into Continuous Latent Space
+## Usage
+Per-Tensor Quantization
 
 ```python
 import torch
-from cosmos_tokenizer.video_lib import CausalVideoTokenizer
+from ptq_tokenizer import Quantizer
 
-model_name = "Cosmos-Tokenizer-CV4x8x8"
-input_tensor = torch.randn(1, 3, 9, 512, 512).to('cuda').to(torch.bfloat16)  # [B, C, T, H, W]
-encoder = CausalVideoTokenizer(checkpoint_enc=f'pretrained_ckpts/{model_name}/encoder.jit')
-(latent,) = encoder.encode(input_tensor)
-torch.testing.assert_close(latent.shape, (1, 16, 3, 64, 64))
+# Load pre-trained Cosmos tokenizer
+tokenizer = Quantizer.load_pretrained("cosmos")
 
-# The input tensor can be reconstructed by the decoder as:
-decoder = CausalVideoTokenizer(checkpoint_dec=f'pretrained_ckpts/{model_name}/decoder.jit')
-reconstructed_tensor = decoder.decode(latent)
-torch.testing.assert_close(reconstructed_tensor.shape, input_tensor.shape)
+# Apply per-tensor quantization
+quantized_model = tokenizer.quantize(
+    method="per_tensor",
+    encoder_bits=8,
+    decoder_bits=6
+)
+
+# Save quantized model
+quantized_model.save("quantized_models/cosmos_per_tensor_8e_6d.pt")
 ```
-The `latent` will have the shape `(1, 16, 3, 64, 64)`, where the first of the three latents represents the first frame, and C=16 is the number of channels of the latent.
 
-### Encoding into Discrete Tokens
+Logarithmic Quantization
+
 ```python
 import torch
-from cosmos_tokenizer.video_lib import CausalVideoTokenizer
+from ptq_tokenizer import Quantizer
 
-model_name = "Cosmos-Tokenizer-DV4x8x8"
-input_tensor = torch.randn(1, 3, 9, 512, 512).to('cuda').to(torch.bfloat16)  # [B, C, T, H, W]
-encoder = CausalVideoTokenizer(checkpoint_enc=f'pretrained_ckpts/{model_name}/encoder.jit')
-(indices, codes) = encoder.encode(input_tensor)
-torch.testing.assert_close(indices.shape, (1, 3, 64, 64))
-torch.testing.assert_close(codes.shape, (1, 6, 3, 64, 64))
+# Load pre-trained Cosmos tokenizer
+tokenizer = Quantizer.load_pretrained("cosmos")
 
-# The input tensor can be reconstructed by the decoder as:
-decoder = CausalVideoTokenizer(checkpoint_dec=f'pretrained_ckpts/{model_name}/decoder.jit')
-reconstructed_tensor = decoder.decode(indices)
-torch.testing.assert_close(reconstructed_tensor.shape, input_tensor.shape)
-```
-The `indices` will have the shape `(1, 3, 64, 64)` and contain integral values in the range `[1..64K]`, where the first of the three integral maps represents the first frame. 
-The `codes` will contain the pre-quantization continuous latent with shape `(1, 6, 3, 64, 64)`, where C=6 represents the number of FSQ levels.
+# Apply logarithmic quantization
+quantized_model = tokenizer.quantize(
+    method="logarithmic",
+    encoder_bits=8,
+    decoder_bits=6
+)
 
-## Torchscript (PyTorch JIT) Inference APIs
-The following instructions run the various tokenizer on the example image and video provided in `test_data/`.
-
-- Autoencoding images. Accepts an input image, and outputs a reconstruction of the image obtained by decoding the encoded latents. 
-```bash
-# Autoencoding images using `Cosmos-CI` with a compression rate of 8x8.
-model_name="Cosmos-Tokenizer-CI8x8"
-python3 -m cosmos_tokenizer.image_cli \
-    --image_pattern 'test_data/image.png' \
-    --checkpoint_enc pretrained_ckpts/${model_name}/encoder.jit \
-    --checkpoint_dec pretrained_ckpts/${model_name}/decoder.jit
-```
-If `--output_dir` is not specified, you can find the reconstructed image at `test_data/reconstructions/image.png`.
-
-- Autoencoding videos. Accepts an input video, and outputs a reconstruction of the video obtained by decoding the encoded latents.
-```bash
-# Autoencoding videos using `Cosmos-DV` with a compression rate of 4x8x8.
-model_name="Cosmos-Tokenizer-DV4x8x8"
-python3 -m cosmos_tokenizer.video_cli \
-    --video_pattern 'test_data/video.mp4' \
-    --checkpoint_enc pretrained_ckpts/${model_name}/encoder.jit \
-    --checkpoint_dec pretrained_ckpts/${model_name}/decoder.jit
-```
-If `--output_dir` is not specified, then you can find the reconstructed video at `test_data/reconstructions/video.mp4`.
-
-## PyTorch Inference APIs
-
-To run the tokenizers in native PyTorch, append your commands with `--mode=torch`.  <br />
-In PyTorch mode, the model is constructed from the native network definition scripts, which requires providing additional arguments to configure the model for instantiation. 
-
-For example, to instantiate a `Cosmos-DI` with a spatial compression factor of 8, append the following command line arguments:
-
-- `--mode=torch`
-- `--tokenizer_type=DI`
-- `--spatial_compression=8`
-
-Note that the `--checkpoint_enc`, `--checkpoint_dec`, and `--checkpoint` should still refer to JIT files. <br />
-The necessary `state_dict`s will be extracted from the loaded JIT models to initialize the weights of the constructed native PyTorch model.
-
-```bash
-# Autoencoding images using `Cosmos-DI` with a compression rate of 8x8.
-model_name="Cosmos-Tokenizer-DI8x8"
-python3 -m cosmos_tokenizer.image_cli \
-    --image_pattern 'test_data/*.png' \
-    --mode=torch \
-    --tokenizer_type=DI \
-    --spatial_compression=8 \
-    --checkpoint_enc pretrained_ckpts/${model_name}/encoder.jit \
-    --checkpoint_dec pretrained_ckpts/${model_name}/decoder.jit
+# Save quantized model
+quantized_model.save("quantized_models/cosmos_log_8e_6d.pt")
 ```
 
-To instantiate a `Cosmos-CV` with a temporal factor of 8 and a spatial compression factor of 8, append the following command line arguments:
+## Tokenization (ImageNet)
 
-- `--mode=torch`
-- `--tokenizer_type=CV`
-- `--temporal_compression=8`
-- `--spatial_compression=8`
 
-```bash
-# Autoencoding videos using `Cosmos-CV` with a compression rate of 8x8x8.
-model_name="Cosmos-Tokenizer-CV8x8x8"
-python3 -m cosmos_tokenizer.video_cli \
-    --video_pattern 'test_data/*.mp4' \
-    --mode=torch \
-    --tokenizer_type=CV \
-    --temporal_compression=8 \
-    --spatial_compression=8 \
-    --checkpoint_enc pretrained_ckpts/${model_name}/encoder.jit \
-    --checkpoint_dec pretrained_ckpts/${model_name}/decoder.jit
+export LAUNCH="python "
+
+export SCRIPT="/fs/cml-projects/yet-another-diffusion/Cosmos-Tokenizer/quantize_cosmos.py"
+export SCRIPT_ARGS="--image_path $IMAGE_DIR \
+--batch_size 100 \
+--output_path $OUTPUT_DIR \
+--model_path /fs/cml-projects/yet-another-diffusion/Cosmos-Tokenizer/scripts/pretrained_ckpts/Cosmos-Tokenizer-DI8x8 \
+--n_save 3 \
+--quantize_method per_tensor \
+--bits 6"
+# launch job
+export CMD="$LAUNCH $SCRIPT $SCRIPT_ARGS"
+srun $CMD
+
+
+
+## Dataset
+We use the Boldbrush Artistic Image Dataset (BAID), which contains 5,000 artistic images featuring intricate brush strokes, complex textures, and fine-grained details. These elements are challenging to preserve under aggressive compression schemes, making BAID an ideal test case for evaluating tokenizer quantization.
+
+## Results
+Our evaluation reveals that:
+
+- Logarithmic quantization consistently outperforms per-tensor approaches, especially at lower bit widths
+- Encoder sensitivity is higher than decoder sensitivity, enabling asymmetric bit allocation
+- Mixed-precision strategies (e.g., 6-bit encoder, 4-bit decoder) achieve optimal quality-size tradeoffs
+
+Visual inspection shows logarithmic quantization's superior quality preservation across all bit-width configurations, with particularly strong advantages in preserving artistic details and texture patterns at moderate compression levels.
+
+## Requirements
+- Python 3.8+
+- PyTorch 1.9+
+- CUDA 11.0+ (for GPU support)
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+
+## Citation
+
+@article{paul2025post,
+  title={Post-Training Quantization of Image Tokenizers for Autoregressive Image Generation},
+  author={Paul, Sukriti},
+  year={2025}
+}
+
+Acknowledgments
+This work builds upon the NVIDIA Cosmos Tokenizer and VQVAE. We thank the authors of these projects for making their code and models available.
+
+## Quantization Command
+
+Parameters:
+- `image_path`: Path to input images directory
+- `batch_size`: Batch size for processing (e.g., 100)
+- `output_path`: Directory to save quantized outputs
+- `model_path`: Path to pretrained Cosmos tokenizer
+- `n_save`: Number of samples to save (e.g., 3)
+- `quantize_method`: Quantization method ("per_tensor" or "logarithmic")
+- `bits`: Number of bits for quantization (e.g., 6)
+
+```python
+python quantize_cosmos.py \
+    --image_path /path/to/images \
+    --batch_size 100 \
+    --output_path /path/to/output \
+    --model_path /path/to/Cosmos-Tokenizer-DI8x8 \
+    --n_save 3 \
+    --quantize_method per_tensor \
+    --bits 6
 ```
 
-## Evaluation
-Quantitative comparision of our tokenizer and previous tokenizers on DAVIS (Perazzi et al., 2016) dataset. Cosmos Tokenizer achieves state-of-the-art results. Even at higer compression rates (8x8x8 and 8x16x16), Cosmos Tokenizer outperforms previous methods, demonstrating excellent compression-quality trade-off.
-![Arch](assets/Davis-results.jpg)
-## Performance
-Comparision of parameter counts and average encoding and decoding times per image or per video frame on a single A100 80GB GPU. Cosmos Tokenizer achieves 2x to 12x faster speeds than previous methods while maintaining smallest model sizes, demonstrating high tokenization efficiency. 
-![Arch](assets/Performance.jpg)
-
-
-## [TokenBench](https://github.com/NVlabs/TokenBench)
-TokenBench is a comprehensive benchmark that we have curated to standardize the evaluation of [Cosmos-Tokenizer](https://github.com/NVIDIA/Cosmos-Tokenizer). It covers a wide variety of domains including robotic manipulation, driving, egocentric, and web videos. It consists of high-resolution, long-duration videos, and is designed to benchmark video tokenizers. We have made TokenBench publicly available at [github.com/NVlabs/TokenBench](https://github.com/NVlabs/TokenBench).
-
-## Core Contributors
-
-Fitsum Reda, Jinwei Gu, Xian Liu, Songwei Ge, Ting-Chun Wang, Haoxiang Wang, Ming-Yu Liu
-
-
-## Acknowledgments
-We would like to acknowledge the following projects where parts of the codes in the [cosmos_tokenizer/modules](cosmos_tokenizer/modules) folder is derived from:
-- [CompVis/stable-diffusion](https://github.com/CompVis/stable-diffusion)
-- [lucidrains/magvit2-pytorch](https://github.com/lucidrains/magvit2-pytorch)
-- [lucidrains/vector-quantize-pytorch](https://github.com/lucidrains/vector-quantize-pytorch)
-- [CompVis/taming-transformers](https://github.com/CompVis/taming-transformers)
