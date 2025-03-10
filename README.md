@@ -1,6 +1,6 @@
 # Post-Training Quantization of Image Tokenizers for Autoregressive Image Generation
 
-![Results Overview](assets/ptq_results.png)
+![Results Overview](assets/ptq.png)
 
 [Report](./PTQ_Report.pdf)
 
@@ -19,69 +19,57 @@ Our logarithmic quantization consistently outperforms per-tensor approaches, mai
 ## Installation
 
 ```bash
-git clone https://github.com/sukritipaul/PTQ-Tokenizer.git
-cd PTQ-Tokenizer
+git clone https://github.com/sukritipaul/Cosmos-Tokenizer.git
+cd Cosmos-Tokenizer
 pip install -r requirements.txt
 ```
 
 ## Usage
-Per-Tensor Quantization
 
-```python
-import torch
-from ptq_tokenizer import Quantizer
+### Basic Usage
 
-# Load pre-trained Cosmos tokenizer
-tokenizer = Quantizer.load_pretrained("cosmos")
-
-# Apply per-tensor quantization
-quantized_model = tokenizer.quantize(
-    method="per_tensor",
-    encoder_bits=8,
-    decoder_bits=6
-)
-
-# Save quantized model
-quantized_model.save("quantized_models/cosmos_per_tensor_8e_6d.pt")
+```bash
+python quantize_cosmos.py \
+    --image_path /path/to/images \
+    --batch_size 100 \
+    --output_path results/ \
+    --model_path /path/to/Cosmos-Tokenizer-DI8x8 \
+    --n_save 3 \
+    --quantize_method per_tensor \
+    --encoder_bits 8 \
+    --decoder_bits 6
 ```
 
-Logarithmic Quantization
+### Parameters
 
-```python
-import torch
-from ptq_tokenizer import Quantizer
+- `--image_path`: Directory containing input images
+- `--batch_size`: Number of images to process at once (default: 5)
+- `--model_path`: Path to pretrained Cosmos tokenizer
+- `--output_path`: Directory to save results (default: results/)
+- `--n_save`: Number of sample images to save (default: 3)
+- `--quantize_method`: Quantization method ('per_tensor' or 'log_quantization')
+- `--encoder_bits`: Number of bits for encoder quantization
+- `--decoder_bits`: Number of bits for decoder quantization
 
-# Load pre-trained Cosmos tokenizer
-tokenizer = Quantizer.load_pretrained("cosmos")
+### Examples
 
-# Apply logarithmic quantization
-quantized_model = tokenizer.quantize(
-    method="logarithmic",
-    encoder_bits=8,
-    decoder_bits=6
-)
-
-# Save quantized model
-quantized_model.save("quantized_models/cosmos_log_8e_6d.pt")
+Per-Tensor Quantization (8-bit encoder, 6-bit decoder):
+```bash
+python quantize_cosmos.py \
+    --image_path test_data/ \
+    --quantize_method per_tensor \
+    --encoder_bits 8 \
+    --decoder_bits 6
 ```
 
-## Tokenization (ImageNet)
-
-
-export LAUNCH="python "
-
-export SCRIPT="/fs/cml-projects/yet-another-diffusion/Cosmos-Tokenizer/quantize_cosmos.py"
-export SCRIPT_ARGS="--image_path $IMAGE_DIR \
---batch_size 100 \
---output_path $OUTPUT_DIR \
---model_path /fs/cml-projects/yet-another-diffusion/Cosmos-Tokenizer/scripts/pretrained_ckpts/Cosmos-Tokenizer-DI8x8 \
---n_save 3 \
---quantize_method per_tensor \
---bits 6"
-# launch job
-export CMD="$LAUNCH $SCRIPT $SCRIPT_ARGS"
-srun $CMD
-
+Logarithmic Quantization (6-bit for both):
+```bash
+python quantize_cosmos.py \
+    --image_path test_data/ \
+    --quantize_method log_quantization \
+    --encoder_bits 6 \
+    --decoder_bits 6
+```
 
 
 ## Dataset
@@ -104,36 +92,8 @@ Visual inspection shows logarithmic quantization's superior quality preservation
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 
-## Citation
-
-@article{paul2025post,
-  title={Post-Training Quantization of Image Tokenizers for Autoregressive Image Generation},
-  author={Paul, Sukriti},
-  year={2025}
-}
-
 Acknowledgments
 This work builds upon the NVIDIA Cosmos Tokenizer and VQVAE. We thank the authors of these projects for making their code and models available.
 
-## Quantization Command
 
-Parameters:
-- `image_path`: Path to input images directory
-- `batch_size`: Batch size for processing (e.g., 100)
-- `output_path`: Directory to save quantized outputs
-- `model_path`: Path to pretrained Cosmos tokenizer
-- `n_save`: Number of samples to save (e.g., 3)
-- `quantize_method`: Quantization method ("per_tensor" or "logarithmic")
-- `bits`: Number of bits for quantization (e.g., 6)
-
-```python
-python quantize_cosmos.py \
-    --image_path /path/to/images \
-    --batch_size 100 \
-    --output_path /path/to/output \
-    --model_path /path/to/Cosmos-Tokenizer-DI8x8 \
-    --n_save 3 \
-    --quantize_method per_tensor \
-    --bits 6
-```
 
