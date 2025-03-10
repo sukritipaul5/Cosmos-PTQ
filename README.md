@@ -1,4 +1,4 @@
-# Post-Training Quantization of Image Tokenizers for Autoregressive Image Generation
+# Post-Training Quantization of Image Tokenizers (Nvidia's Cosmos Tokenizer)
 
 ![Results Overview](assets/ptq.png)
 
