@@ -1,7 +1,8 @@
 from huggingface_hub import login, snapshot_download
 import os
 
-login(token="", add_to_git_credential=True)
+# Use environment variable for the token instead of hardcoding it
+login(token=os.getenv("HF_TOKEN"), add_to_git_credential=True)
 model_names = [
         "Cosmos-Tokenizer-CI8x8",
         "Cosmos-Tokenizer-CI16x16",
